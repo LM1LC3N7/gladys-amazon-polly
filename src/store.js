@@ -22,8 +22,13 @@ export class StoreUnreadable extends Error {
 }
 
 export class FileStore {
-  constructor({ dir = process.env.DATA_DIR || '/data', name = 'amazon-polly.json' } = {}) {
+  constructor({
+    dir = process.env.DATA_DIR || '/data',
+    name = 'amazon-polly.json',
+    fs = { open, readFile, rename },
+  } = {}) {
     this.path = join(dir, name);
+    this.fs = fs; // injected by the tests (the fsync calls are counted there)
     this.queue = Promise.resolve();
   }
 
@@ -31,7 +36,7 @@ export class FileStore {
   async load() {
     let text;
     try {
-      text = await readFile(this.path, 'utf8');
+      text = await this.fs.readFile(this.path, 'utf8');
     } catch (err) {
       if (err?.code === 'ENOENT') return {};
       throw new StoreUnreadable(err?.code ?? 'error');
@@ -55,7 +60,7 @@ export class FileStore {
   /** Moves the file to `.bad`; when it cannot be moved, it is unreadable. */
   async setAside() {
     try {
-      await rename(this.path, `${this.path}.bad`);
+      await this.fs.rename(this.path, `${this.path}.bad`);
     } catch (err) {
       throw new StoreUnreadable(err?.code ?? 'unparsable');
     }
@@ -65,16 +70,16 @@ export class FileStore {
   save(data) {
     const write = async () => {
       const tmp = `${this.path}.tmp`;
-      const handle = await open(tmp, 'w', 0o600);
+      const handle = await this.fs.open(tmp, 'w', 0o600);
       try {
         await handle.writeFile(JSON.stringify(data), 'utf8');
         await handle.sync();
       } finally {
         await handle.close();
       }
-      await rename(tmp, this.path);
+      await this.fs.rename(tmp, this.path);
       // The rename itself reaches the disk only with the directory.
-      const dir = await open(dirname(this.path), 'r');
+      const dir = await this.fs.open(dirname(this.path), 'r');
       try {
         await dir.sync();
       } finally {

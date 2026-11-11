@@ -73,7 +73,8 @@ vocale`; no `countries` (worldwide).
 - **Refusal tied to the region** (review r1): the fingerprint covers the
   keys and the region, since an opt-in region not enabled answers like an
   unknown key.
-- **/data never blocks a synthesis** (Louis, review r2): the count is kept
+- **/data never blocks a synthesis** (decision of the coordinator, review
+  r2, to be confirmed by Louis): the count is kept
   and checked in memory before every request; the write (temporary file,
   fsync, rename, fsync of the directory) is awaited 1 s at most, then the
   request leaves anyway. /data unread, read-only or slow: the status says

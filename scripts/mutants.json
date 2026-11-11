@@ -316,5 +316,11 @@
     "file": "src/app.js",
     "from": "      this.usage.used += chars;\n      const saved",
     "to": "      const saved"
+  },
+  {
+    "name": "directory not synced after the rename (P6)",
+    "file": "src/store.js",
+    "from": "        await dir.sync();\n",
+    "to": ""
   }
 ]
