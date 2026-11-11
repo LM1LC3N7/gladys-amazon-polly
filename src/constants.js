@@ -101,6 +101,8 @@ export const CACHE_TTL_MS = 24 * 3_600_000;
 /** /data read again on this timer while it cannot be read; the first read waits this long. */
 export const STORE_RETRY_MS = 10_000;
 export const STORE_LOAD_BUDGET_MS = 2_000;
+/** The count is written to /data before a request leaves, waited for this long at most. */
+export const SAVE_BUDGET_MS = 1_000;
 /** getConfig() retried without end: 5 s, doubled up to 60 s. */
 export const CONFIG_RETRY_MIN_MS = 5_000;
 export const CONFIG_RETRY_MAX_MS = 60_000;

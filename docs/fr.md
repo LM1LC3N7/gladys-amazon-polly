@@ -27,12 +27,15 @@ nouveaux comptes ont un quota gratuit la première année). Le moteur standard e
 
 Pour garder la facture en main :
 
-- **Limite mensuelle** (1 000 000 de caractères par défaut) : comptée avant le départ de chaque requête et
-  gardée dans `/data` ; atteinte, plus rien n’est envoyé avant le mois civil suivant (UTC) ou une limite plus
+- **Limite mensuelle** (1 000 000 de caractères par défaut) : comptée et écrite dans `/data` avant le départ
+  de chaque requête (1 s au plus) ; atteinte, plus rien n’est envoyé avant le mois civil suivant (UTC) ou une limite plus
   haute. Une requête peut-être facturée (pas de réponse, connexion coupée) reste comptée ; une requête à
   laquelle AWS a répondu par une erreur ne l’est pas. Si `/data` est illisible, le compte part de ce qui a été
-  envoyé depuis le démarrage et est fusionné quand `/data` redevient lisible.
-- Le même texte dans la même voix est rejoué depuis la mémoire (24 heures, 20 clips), pas facturé deux fois.
+  envoyé depuis le démarrage et est fusionné quand `/data` redevient lisible ; le statut le dit en attendant (la
+  pause et un refus gardés dans `/data` ne sont pas connus non plus).
+- Le même texte dans la même voix est rejoué depuis la mémoire (24 heures, 20 clips), pas facturé deux fois ;
+  demandé plusieurs fois à la fois (une scène qui annonce sur plusieurs enceintes), il ne fait qu’une requête
+  dont tous partagent la réponse.
 - 2 requêtes à la fois au plus et 8 en attente ; au-delà, au même moment, refus (« Trop d’annonces à la fois »).
 - Pas de nouvel essai : une requête en échec n’est pas renvoyée par l’intégration (un nouvel essai pourrait
   être facturé deux fois).
@@ -74,8 +77,8 @@ enregistrés et dit combien de temps cela a pris. Rien n’est joué.
 
 Le statut de l’écran Configuration dit pourquoi :
 
-- **AWS a refusé ces clés** (clé inconnue, supprimée ou désactivée, secret erroné) : plus rien n’est envoyé
-  avec elles, même après un redémarrage (dès que `/data` est lu), tant que vous ne saisissez pas d’autres clés ou que le bouton
+- **AWS a refusé ces clés** (clé inconnue, supprimée ou désactivée, secret erroné, ou région non activée sur le
+  compte, comme eu-south-2 ou af-south-1) : plus rien n’est envoyé avec elles dans cette région, même après un redémarrage (dès que `/data` est lu), tant que vous ne saisissez pas d’autres clés, ne choisissez pas une autre région, ou que le bouton
   **Tester** ne réussit pas (il envoie quand même). `/data` ne garde que 8 bits d’une empreinte salée des clés
   refusées, jamais les clés : après un redémarrage, d’autres clés ont 1 chance sur 256 de paraître refusées ; le
   bouton Tester lève alors le refus.
@@ -86,7 +89,8 @@ Le statut de l’écran Configuration dit pourquoi :
   jusqu’à 1 heure si cela continue (plus quand AWS le demande par `Retry-After`, 6 heures au plus) ; le bouton
   Tester attend aussi. La pause est gardée dans `/data` au redémarrage ; un succès y met fin.
 - **Polly a refusé la requête** : sa raison est affichée (par exemple « This voice does not support the selected
-  engine ») ; rien n’est facturé.
+  engine »), sans les valeurs qu’elle cite (votre texte pourrait en être une) ; rien n’est facturé.
+- **Injoignable, ou connexion coupée** : une coupure après le départ de la requête reste comptée.
 - **Pas de réponse à temps** : Gladys attend 30 s ; l’intégration abandonne à 25 s.
 
 ## Vie privée

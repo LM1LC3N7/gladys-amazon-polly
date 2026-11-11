@@ -25,6 +25,9 @@ vocale`; no `countries` (worldwide).
       `polly:DescribeVoices`, outside the minimal policy). A voice Polly does
       not know is refused by Polly with a clear message, not billed.
 - [ ] The prosody rate with the generative engine (partial SSML support).
+- [ ] The error a valid key gets in an opt-in region not enabled on the
+      account (eu-central-2, eu-south-2, af-south-1): UnrecognizedClientException
+      or InvalidClientTokenId expected, taken as a refusal in that region only.
 
 ## Later
 
@@ -63,7 +66,17 @@ vocale`; no `countries` (worldwide).
 - **Pause**: 60 s doubled up to 1 h (inside the 60 s-6 h rule), a
   `Retry-After` honored up to 6 h; on every path, the Test button included.
 - **Cache**: 20 clips, 20 MB of base64, 24 h, in memory only: a recurring
-  announcement ("The door is open") is billed once a day at most.
+  announcement ("The door is open") is billed once a day at most. Identical
+  requests at the same moment (the core runs the actions of a scene column
+  in parallel, one getSpeechUrl per speaker) share the request in flight,
+  its answer or its failure (review r1).
+- **Refusal tied to the region** (review r1): the fingerprint covers the
+  keys and the region, since an opt-in region not enabled answers like an
+  unknown key.
+- **Count written before sending**, the write awaited 1 s at most (review
+  r1); a /data not read yet is said in the status.
+- **Polly's 400 messages** are shown without their quoted values (AWS quotes
+  the value received, which may be the private text).
 - **Voices**: one select per Gladys language (fr, en, de) from the Polly
   documentation, labelled "not standard" when the voice has no standard
   engine; the engine/voice pair is not checked locally (Polly refuses it with

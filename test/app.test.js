@@ -7,6 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
+import { fp8 } from '../src/app.js';
 import { PollyError } from '../src/polly.js';
 import { createMemoryStore } from '../src/store.js';
 import { testClock } from './helpers/clock.js';
@@ -558,4 +559,167 @@ test('one client per region and keys: a change of keys or region makes a new one
   const c = app.clientFor({ ...base, region: 'us-east-1' });
   assert.equal(c.options.region, 'us-east-1');
   assert.equal(polly.destroyed, 2);
+});
+
+test('identical requests at the same time share one Polly request (a scene on 5 speakers)', async () => {
+  const releases = [];
+  const polly = fakePolly(
+    () => new Promise((resolve) => releases.push(() => resolve({ audio: MP3, characters: null }))),
+  );
+  const { gladys, app } = await makeApp({ polly });
+  const text = 'The door is open now';
+  const acks = [0, 1, 2, 3, 4].map(() => gladys.fake.ttsSynthesize(text, 'en'));
+  await settle();
+  assert.equal(polly.calls.length, 1);
+  releases[0]();
+  const results = await Promise.all(acks);
+  assert.ok(results.every((r) => r.success && r.data.audio === AUDIO));
+  assert.equal(app.usage.used, 20);
+  assert.equal(app.shared.size, 0);
+  // A shared failure: one request, every caller told, never sent again by itself.
+  polly.answer = () => {
+    throw new PollyError('invalid', { status: 400, code: 'ValidationException', detail: 'x' });
+  };
+  const failed = await Promise.all([1, 2, 3].map(() => gladys.fake.ttsSynthesize('Other', 'en')));
+  assert.ok(failed.every((r) => r.success === false && /refused the request/.test(r.error)));
+  assert.equal(polly.calls.length, 2);
+  assert.equal(app.shared.size, 0);
+});
+
+for (const variant of ['throttled', 'refused', 'limit']) {
+  test(`the guard is checked again after the queue: ${variant}`, async () => {
+    const releases = [];
+    const polly = fakePolly(
+      () =>
+        new Promise((resolve, reject) =>
+          releases.push((err) => (err ? reject(err) : resolve({ audio: MP3 }))),
+        ),
+    );
+    const config = { ...CONFIG, monthly_character_limit: 10_000 };
+    const { gladys } = await makeApp({ polly, config });
+    const running = [0, 1].map((i) => gladys.fake.ttsSynthesize(`${i}`.repeat(400), 'en'));
+    const waiting = [2, 3, 4].map((i) => gladys.fake.ttsSynthesize(`${i}`.repeat(300), 'en'));
+    await settle();
+    assert.equal(polly.calls.length, 2);
+    if (variant === 'throttled') {
+      releases[0](new PollyError('throttled', { status: 400, code: 'ThrottlingException' }));
+    } else if (variant === 'refused') {
+      releases[0](new PollyError('refused', { status: 403, code: 'UnrecognizedClientException' }));
+    } else {
+      await gladys.fake.configUpdated({ ...CONFIG, monthly_character_limit: 1000 });
+      releases[0]();
+    }
+    await settle();
+    releases[1]?.();
+    await Promise.all(running);
+    const results = await Promise.all(waiting);
+    const expected = {
+      throttled: /no request before/,
+      refused: /AWS refused these keys/,
+      limit: /monthly limit of 1000 characters is reached/,
+    }[variant];
+    for (const r of results) assert.match(r.error, expected);
+    assert.equal(polly.calls.length, 2, 'none of the waiting requests left');
+  });
+}
+
+test('each refusal draws a new salt; another month in /data is not counted', async () => {
+  const store = createMemoryStore({ usage: { month: '2026-10', used: 999_000 } });
+  const polly = fakePolly(refused);
+  const { gladys, app } = await makeApp({ store, polly });
+  assert.equal(app.usage.used, 0, 'October does not count in November');
+  await gladys.fake.ttsSynthesize('Hello', 'en');
+  const first = store.data.refused.salt;
+  await gladys.fake.action('test_voice', {});
+  assert.equal(polly.calls.length, 2);
+  assert.notEqual(store.data.refused.salt, first);
+});
+
+/** Secrets that differ from SECRET only in their last 4 characters. */
+function* candidates() {
+  const abc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (const a of abc)
+    for (const b of abc) for (const c of abc) yield `${SECRET.slice(0, 37)}${a}${b}${c}`;
+}
+
+test('new keys sharing the 8-bit fingerprint of refused ones are still tried (same process)', async () => {
+  const store = createMemoryStore();
+  const polly = fakePolly(refused);
+  const { gladys } = await makeApp({ store, polly });
+  await gladys.fake.ttsSynthesize('Hello', 'en');
+  const { salt, fp } = store.data.refused;
+  const base = { accessKeyId: KEY_ID, region: 'eu-west-1' };
+  let twin;
+  for (const secret of candidates()) {
+    if (secret !== SECRET && fp8(salt, { ...base, secretAccessKey: secret }) === fp) {
+      twin = secret;
+      break;
+    }
+  }
+  assert.ok(twin, 'a collision exists among 17,576 candidates');
+  polly.answer = () => ({ audio: MP3 });
+  await gladys.fake.configUpdated({ ...CONFIG, secret_access_key: twin });
+  assert.equal((await gladys.fake.ttsSynthesize('Hello', 'en')).success, true);
+  assert.equal(polly.calls.length, 2);
+});
+
+test('brute force: the 8-bit fingerprint points at about 1 key in 256, never at one key', () => {
+  const salt = '0123456789abcdef0123456789abcdef';
+  const base = { accessKeyId: KEY_ID, region: 'eu-west-1' };
+  const target = fp8(salt, { ...base, secretAccessKey: SECRET });
+  let n = 0;
+  let matches = 0;
+  for (const secret of candidates()) {
+    n += 1;
+    if (fp8(salt, { ...base, secretAccessKey: secret }) === target) matches += 1;
+  }
+  // About n / 256 = 69 secrets fit the fingerprint: it tells nothing of the key.
+  assert.ok(matches > n / 256 / 2 && matches < (n / 256) * 2, `${matches} of ${n}`);
+});
+
+test('a refusal is tied to the region; a cut connection stays counted; /data unread is said', async () => {
+  const store = createMemoryStore();
+  store.unreadable = true;
+  const polly = fakePolly(refused);
+  const { gladys, app } = await makeApp({
+    store,
+    polly,
+    config: { ...CONFIG, region: 'eu-south-2' },
+  });
+  assert.match(lastStatus(gladys)[1], /\/data cannot be read yet/);
+  await gladys.fake.ttsSynthesize('Hello', 'en');
+  await gladys.fake.configUpdated({ ...CONFIG, region: 'eu-west-1' });
+  polly.answer = () => {
+    throw new PollyError('network', { code: 'ECONNRESET', sent: true });
+  };
+  const cut = await gladys.fake.ttsSynthesize('Hello', 'en');
+  assert.equal(polly.calls.length, 2, 'tried again in another region');
+  assert.match(cut.error, /connection was cut/);
+  assert.equal(app.usage.used, 5, 'maybe billed: kept');
+});
+
+test('the count reaches /data before the request leaves (1 s at most for a stuck volume)', async () => {
+  const clock = testClock({ start: START });
+  const store = createMemoryStore();
+  const save = store.save;
+  let delay = 500;
+  store.save = (next) =>
+    new Promise((resolve) => clock.timers.setTimeout(() => resolve(save(next)), delay));
+  const { gladys, polly } = await makeApp({ store, clock });
+  const first = gladys.fake.ttsSynthesize('Hello', 'en');
+  await settle();
+  assert.equal(polly.calls.length, 0, 'waits for the write');
+  await clock.advance(500);
+  assert.equal(polly.calls.length, 1);
+  assert.equal(store.data.usage.used, 5);
+  assert.equal((await first).success, true);
+  // A volume that never answers holds the request 1 s, not more.
+  delay = 3_600_000;
+  const second = gladys.fake.ttsSynthesize('Hello again', 'en');
+  await settle();
+  await clock.advance(999);
+  assert.equal(polly.calls.length, 1);
+  await clock.advance(2);
+  assert.equal(polly.calls.length, 2);
+  assert.equal((await second).success, true);
 });

@@ -26,12 +26,13 @@ accounts get a free allowance during their first year). The standard engine is t
 
 To keep the bill under control:
 
-- **Monthly limit** (default 1,000,000 characters): counted before each request leaves and kept in `/data`;
+- **Monthly limit** (default 1,000,000 characters): counted and written to `/data` before each request leaves (1 s at most);
   once reached, nothing more is sent until the next calendar month (UTC) or a higher limit. A request that may
   have been billed (no answer, connection cut) stays counted; a request AWS answered with an error is not.
   If `/data` cannot be read, the count starts from what was sent since the start and is merged once `/data`
-  is readable again.
-- The same text in the same voice is played again from memory (24 hours, 20 clips), not billed twice.
+  is readable again; the status says so meanwhile (the pause and a refusal kept there are not known either).
+- The same text in the same voice is played again from memory (24 hours, 20 clips), not billed twice; asked
+  several times at once (a scene announcing on several speakers), it makes one request whose answer all share.
 - At most 2 requests at once and 8 waiting; more at the same moment are refused ("Too many announcements").
 - No retry: a failed request is not sent again by the integration (a retry could be billed twice).
 
@@ -71,8 +72,8 @@ settings and says how long it took. Nothing is played.
 
 The status of the Configuration screen says why:
 
-- **AWS refused these keys** (unknown, deleted or deactivated key, wrong secret): nothing more is sent with
-  them, even after a restart (once `/data` is read), until you enter other keys or the **Test** button succeeds (it sends anyway).
+- **AWS refused these keys** (unknown, deleted or deactivated key, wrong secret, or a region not enabled on
+  the account, such as eu-south-2 or af-south-1): nothing more is sent with them in that region, even after a restart (once `/data` is read), until you enter other keys, choose another region, or the **Test** button succeeds (it sends anyway).
   `/data` keeps only 8 bits of a salted hash of the refused keys, never the keys: after a restart, other keys
   have 1 chance in 256 to look refused; the Test button then clears it.
 - **Denied** (`AccessDeniedException`): the keys are valid but the IAM user lacks `polly:SynthesizeSpeech`.
@@ -82,7 +83,8 @@ The status of the Configuration screen says why:
   1 hour if it goes on (longer when AWS asks for it with `Retry-After`, 6 hours at most); the Test button waits
   too. The pause is kept in `/data` across a restart; a success ends it.
 - **Polly refused the request**: its reason is shown (for example "This voice does not support the selected
-  engine"); nothing is billed.
+  engine"), without the values it quotes (your text could be one); nothing is billed.
+- **Could not be reached, or the connection was cut**: a cut after the request left stays counted.
 - **Did not answer in time**: Gladys waits 30 s; the integration gives up at 25 s.
 
 ## Privacy

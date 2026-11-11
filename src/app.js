@@ -6,12 +6,13 @@
 // What protects the AWS bill and the account:
 //   - the monthly character limit, counted before a request leaves and kept
 //     in /data (a request that may have been billed stays counted);
-//   - the same text in the same voice served from memory (24 h, 20 clips);
+//   - the same text in the same voice served from memory (24 h, 20 clips),
+//     and asked several times at once, one request shared by all;
 //   - at most 2 requests in flight, 8 waiting, the others refused;
 //   - after a throttling or a server error: a pause (60 s doubled up to 1 h,
 //     a Retry-After up to 6 h), kept in /data, on every path, Test included;
-//   - keys refused by AWS: nothing more sent with them (8 bits of a salted
-//     hash in /data) until they change or the Test button succeeds.
+//   - keys refused by AWS in a region: nothing more sent with them there (8
+//     bits of a salted hash in /data) until they change or the Test button succeeds.
 // Time: every pause on the monotonic clock; the wall clock only for /data
 // (pause end across a restart) and the calendar month of the limit (UTC).
 // -----------------------------------------------------------------------------
@@ -35,6 +36,7 @@ import {
   PAUSE_MAX_MS,
   PAUSE_MIN_MS,
   RETRY_AFTER_MAX_MS,
+  SAVE_BUDGET_MS,
   STORE_LOAD_BUDGET_MS,
   STORE_RETRY_MS,
 } from './constants.js';
@@ -43,8 +45,11 @@ import { PollyError } from './polly.js';
 
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 const credsOf = (cfg) => `${cfg.accessKeyId}\n${cfg.secretAccessKey}`;
+// A refusal is tied to the keys AND the region (a key is unknown in a region
+// not enabled on the account; back to another region, it is tried again).
+const refusalOf = (cfg) => `${credsOf(cfg)}\n${cfg.region}`;
 const monthOf = (wall) => new Date(wall).toISOString().slice(0, 7);
-const fp8 = (salt, cfg) => createHmac('sha256', salt).update(credsOf(cfg)).digest()[0];
+export const fp8 = (salt, cfg) => createHmac('sha256', salt).update(refusalOf(cfg)).digest()[0];
 const isInt = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
 
 /** Bounded wait: resolves `fallback` after `ms` if `promise` is slower. */
@@ -118,6 +123,7 @@ export class PollyApp {
     this.waiting = [];
     this.controllers = new Set();
     this.cache = new Map();
+    this.shared = new Map(); // cache key -> the promise of the request in flight
     this.cacheChars = 0;
     // Status.
     this.outcome = 'ready';
@@ -305,8 +311,8 @@ export class PollyApp {
   }
 
   save() {
-    if (!this.storeReady) return;
-    this.store.save(this.snapshot()).catch((err) => {
+    if (!this.storeReady) return Promise.resolve();
+    return this.store.save(this.snapshot()).catch((err) => {
       this.logger.warn(`/data not saved (${err?.message ?? 'error'})`);
     });
   }
@@ -314,7 +320,7 @@ export class PollyApp {
   // --- Guards -------------------------------------------------------------------------
 
   isRefused(cfg) {
-    if (this.refusedFull) return this.refusedFull === sha256(credsOf(cfg));
+    if (this.refusedFull) return this.refusedFull === sha256(refusalOf(cfg));
     return Boolean(this.refused) && fp8(this.refused.salt, cfg) === this.refused.fp;
   }
 
@@ -420,9 +426,20 @@ export class PollyApp {
     const key = sha256(JSON.stringify([voice, cfg.engine, cfg.rate, text]));
     const cached = this.cacheGet(key);
     if (cached) return cached;
-    const { audio } = await this.run({ text, voice, lang, deadline });
-    this.cachePut(key, audio);
-    return audio;
+    // The same text in the same voice already asked (a scene announcing on
+    // several speakers at once): one request, its answer or failure shared.
+    const inFlight = this.shared.get(key);
+    if (inFlight) return inFlight;
+    const job = this.run({ text, voice, lang, deadline }).then(({ audio }) => {
+      this.cachePut(key, audio);
+      return audio;
+    });
+    this.shared.set(key, job);
+    try {
+      return await job;
+    } finally {
+      if (this.shared.get(key) === job) this.shared.delete(key);
+    }
   }
 
   /** The Test button: a short sentence, sent even with refused keys (never during a pause). */
@@ -462,9 +479,12 @@ export class PollyApp {
       this.gate(cfg, chars, lang, { allowRefused });
       const left = deadline - this.now();
       if (left <= 0) throw new Error(t('timeout', lang));
-      // Counted before it leaves: a restart or a lost answer never under-counts.
+      // Counted before it leaves, and written to /data first (1 s at most: a
+      // stuck volume never holds an announcement), so a lost answer or a
+      // crash right after the send does not under-count.
       this.usage.used += chars;
-      this.save();
+      await within(this.save(), SAVE_BUDGET_MS, this.timers);
+      if (this.stopped) throw new Error(t('stopped', lang));
       const started = this.now();
       let result;
       try {
@@ -529,7 +549,11 @@ export class PollyApp {
     this.pauseUntil = 0;
     this.refused = null;
     this.refusedFull = null;
-    this.succeeded = { accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey };
+    this.succeeded = {
+      accessKeyId: cfg.accessKeyId,
+      secretAccessKey: cfg.secretAccessKey,
+      region: cfg.region,
+    };
     this.outcome = 'working';
     this.outcomeVars = { voice: '', engine: cfg.engine };
     this.save();
@@ -546,7 +570,7 @@ export class PollyApp {
     if (kind === 'refused') {
       const salt = randomBytes(16).toString('hex');
       this.refused = { salt, fp: fp8(salt, cfg) };
-      this.refusedFull = sha256(credsOf(cfg));
+      this.refusedFull = sha256(refusalOf(cfg));
       this.succeeded = null;
     } else if (kind === 'throttled' || kind === 'unavailable') {
       this.pauseStep = this.pauseStep ? Math.min(this.pauseStep * 2, PAUSE_MAX_MS) : PAUSE_MIN_MS;
@@ -588,6 +612,10 @@ export class PollyApp {
         key: 'limit_reached',
         vars: { limit: cfg.monthlyLimit, used: this.usage.used },
       };
+    }
+    // /data not read: the limit, the pause and a refusal kept there are not known.
+    if (!this.storeReady && (this.outcome === 'working' || this.outcome === 'ready')) {
+      return { ok: true, key: 'data_unread' };
     }
     if (this.outcome === 'working') {
       return {

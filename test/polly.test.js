@@ -253,6 +253,41 @@ test('a silent Polly is aborted by the signal; a refused connection was never se
   assert.equal(net.sent, false);
 });
 
+test('classify: a cut connection is not a timeout and was sent; quoted values never shown', () => {
+  const cut = classify(
+    Object.assign(new Error('socket hang up'), { name: 'TimeoutError', code: 'ECONNRESET' }),
+  );
+  assert.equal(cut.kind, 'network');
+  assert.equal(cut.sent, true);
+  const reset = classify(Object.assign(new Error('reset'), { code: 'EHOSTUNREACH' }));
+  assert.equal(reset.sent, false);
+  // Any other error without an answer may have left: counted as sent.
+  const other = classify(Object.assign(new Error('aborted'), { code: 'ECONNABORTED' }));
+  assert.equal(other.kind, 'network');
+  assert.equal(other.sent, true);
+  const quoted = classify(
+    Object.assign(new Error("1 validation error: Value 'my private text' at 'text' failed"), {
+      name: 'ValidationException',
+      $metadata: { httpStatusCode: 400 },
+    }),
+  );
+  assert.equal(quoted.kind, 'invalid');
+  assert.ok(!quoted.detail.includes('private'), quoted.detail);
+});
+
+test('a connection cut after the request is sent: one request, network, sent', async (t) => {
+  const srv = await fakePollyServer((req) => req.socket.destroy());
+  const polly = clientFor(srv);
+  t.after(async () => {
+    polly.destroy();
+    await srv.close();
+  });
+  const err = await polly.synthesize(request()).catch((e) => e);
+  assert.equal(err.kind, 'network');
+  assert.equal(err.sent, true);
+  assert.equal(srv.requests.length, 1);
+});
+
 test('redact: no key ID, no given secret, no control character, 200 characters at most', () => {
   const text = `bad AKIAIOSFODNN7EXAMPLE and ${SECRET}\r\nInjected: yes ${'x'.repeat(500)}`;
   const out = redact(text, [KEY_ID, SECRET]);

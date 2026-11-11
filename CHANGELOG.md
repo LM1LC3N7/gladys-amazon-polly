@@ -24,3 +24,4 @@ the notes of the version's GitHub Release.
   succeeds; a pause after a throttling or a server error (60 s doubled up to
   1 h, `Retry-After` up to 6 h), kept across a restart.
 - "Test the voice" button.
+- Identical requests at the same moment share one Polly request.

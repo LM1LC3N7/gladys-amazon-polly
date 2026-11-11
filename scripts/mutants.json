@@ -62,8 +62,8 @@
   {
     "name": "counted only after the answer",
     "file": "src/app.js",
-    "from": "this.usage.used += chars;\n      this.save();",
-    "to": "this.save();"
+    "from": "this.usage.used += chars;\n      await within(",
+    "to": "await within("
   },
   {
     "name": "refunded on a timeout",
@@ -110,8 +110,8 @@
   {
     "name": "/data written before it was read",
     "file": "src/app.js",
-    "from": "    if (!this.storeReady) return;\n    this.store.save(",
-    "to": "    this.store.save("
+    "from": "    if (!this.storeReady) return Promise.resolve();\n",
+    "to": ""
   },
   {
     "name": "second read of /data while one hangs",
@@ -152,7 +152,7 @@
   {
     "name": "Polly message not redacted",
     "file": "src/polly.js",
-    "from": "const detail = redact(message, secrets);",
+    "from": "const detail = redact(message.replace(/'[^']*'|\"[^\"]*\"/g, '…'), secrets);",
     "to": "const detail = message;"
   },
   {
@@ -164,7 +164,7 @@
   {
     "name": "new keys blocked by an old refusal",
     "file": "src/app.js",
-    "from": "if (this.refusedFull) return this.refusedFull === sha256(credsOf(cfg));",
+    "from": "if (this.refusedFull) return this.refusedFull === sha256(refusalOf(cfg));",
     "to": "if (this.refusedFull) return true;"
   },
   {
@@ -232,5 +232,71 @@
     "file": "src/app.js",
     "from": "if (month !== this.usage.month) this.usage = { month, used: 0 };",
     "to": ""
+  },
+  {
+    "name": "identical requests not shared",
+    "file": "src/app.js",
+    "from": "    if (inFlight) return inFlight;\n",
+    "to": ""
+  },
+  {
+    "name": "cut connection refunded (R1)",
+    "file": "src/polly.js",
+    "from": "const sent = !['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH'].includes(err?.code);",
+    "to": "const sent = false;"
+  },
+  {
+    "name": "gate not checked after the queue (R2)",
+    "file": "src/app.js",
+    "from": "      this.gate(cfg, chars, lang, { allowRefused });\n",
+    "to": ""
+  },
+  {
+    "name": "fixed salt (R4)",
+    "file": "src/app.js",
+    "from": "randomBytes(16).toString('hex')",
+    "to": "'0'.repeat(32)"
+  },
+  {
+    "name": "another month counted (R9)",
+    "file": "src/app.js",
+    "from": "usage.month === this.usage.month &&",
+    "to": ""
+  },
+  {
+    "name": "8-bit fingerprint only in memory (R11)",
+    "file": "src/app.js",
+    "from": "if (this.refusedFull) return this.refusedFull === sha256(refusalOf(cfg));",
+    "to": ""
+  },
+  {
+    "name": "refusal not tied to the region",
+    "file": "src/app.js",
+    "from": "const refusalOf = (cfg) => `${credsOf(cfg)}\\n${cfg.region}`;",
+    "to": "const refusalOf = (cfg) => credsOf(cfg);"
+  },
+  {
+    "name": "quoted values shown",
+    "file": "src/polly.js",
+    "from": "message.replace(/'[^']*'|\"[^\"]*\"/g, '…')",
+    "to": "message"
+  },
+  {
+    "name": "cut connection shown as a timeout",
+    "file": "src/polly.js",
+    "from": "if (['ECONNRESET', 'EPIPE'].includes(err?.code)) {",
+    "to": "if (false) {"
+  },
+  {
+    "name": "/data unread not said",
+    "file": "src/app.js",
+    "from": "if (!this.storeReady && (this.outcome === 'working' || this.outcome === 'ready')) {",
+    "to": "if (false) {"
+  },
+  {
+    "name": "count not written before sending",
+    "file": "src/app.js",
+    "from": "await within(this.save(), SAVE_BUDGET_MS, this.timers);",
+    "to": "this.save();"
   }
 ]

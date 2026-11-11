@@ -42,13 +42,17 @@ export const ALL_TEXTS = {
     en: 'Ready. The keys are checked by AWS at the first announcement or with the Test button.',
     fr: 'Prêt. Les clés sont vérifiées par AWS à la première annonce ou avec le bouton Tester.',
   },
+  data_unread: {
+    en: 'Ready, but /data cannot be read yet: the monthly limit counts only what was sent since the start (read again every 10 s).',
+    fr: 'Prêt, mais /data n’est pas encore lisible : la limite mensuelle ne compte que ce qui a été envoyé depuis le démarrage (relu toutes les 10 s).',
+  },
   working: {
     en: 'Amazon Polly answered (voice {voice}, {engine} engine).',
     fr: 'Amazon Polly a répondu (voix {voice}, moteur {engine}).',
   },
   refused: {
-    en: 'AWS refused these keys (unknown, deleted or deactivated key, or wrong secret). Nothing is sent with them until they change or the Test button succeeds.',
-    fr: 'AWS a refusé ces clés (clé inconnue, supprimée ou désactivée, ou secret erroné). Plus rien n’est envoyé avec elles tant qu’elles ne changent pas ou que le bouton Tester ne réussit pas.',
+    en: 'AWS refused these keys in this region (unknown, deleted or deactivated key, wrong secret, or a region not enabled on the account). Nothing is sent with them until the keys or the region change, or the Test button succeeds.',
+    fr: 'AWS a refusé ces clés dans cette région (clé inconnue, supprimée ou désactivée, secret erroné, ou région non activée sur le compte). Plus rien n’est envoyé avec elles tant que les clés ou la région ne changent pas, ou que le bouton Tester ne réussit pas.',
   },
   denied: {
     en: 'AWS accepted the keys but denied the synthesis: give the IAM user the polly:SynthesizeSpeech permission.',
@@ -71,8 +75,8 @@ export const ALL_TEXTS = {
     fr: 'Amazon Polly n’a pas répondu à temps.',
   },
   network: {
-    en: 'Amazon Polly could not be reached (network).',
-    fr: 'Amazon Polly est injoignable (réseau).',
+    en: 'Amazon Polly could not be reached, or the connection was cut (network).',
+    fr: 'Amazon Polly est injoignable, ou la connexion a été coupée (réseau).',
   },
   bad_answer: {
     en: 'Amazon Polly sent an answer that is not an MP3 clip.',

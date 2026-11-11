@@ -71,8 +71,14 @@ export function classify(err, secrets = []) {
   const status = err?.$metadata?.httpStatusCode;
   const code = typeof err?.name === 'string' ? err.name : undefined;
   const message = typeof err?.message === 'string' ? err.message : '';
-  const detail = redact(message, secrets);
+  // AWS validation messages quote the values received ("Value 'xxx' at 'text'"):
+  // the quoted parts may be the private text, never shown.
+  const detail = redact(message.replace(/'[^']*'|"[^"]*"/g, '…'), secrets);
   if (typeof status !== 'number') {
+    // The SDK names a cut connection TimeoutError too: its code tells them apart.
+    if (['ECONNRESET', 'EPIPE'].includes(err?.code)) {
+      return new PollyError('network', { code: err.code, sent: true });
+    }
     if (code === 'AbortError' || code === 'TimeoutError' || err?.code === 'ETIMEDOUT') {
       return new PollyError('timeout', { code: 'timeout' });
     }
