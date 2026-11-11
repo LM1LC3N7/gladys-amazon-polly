@@ -73,9 +73,15 @@ vocale`; no `countries` (worldwide).
 - **Refusal tied to the region** (review r1): the fingerprint covers the
   keys and the region, since an opt-in region not enabled answers like an
   unknown key.
-- **Count written before sending**, the write awaited 1 s at most (review
-  r1); a /data not read yet is said in the status.
-- **Polly's 400 messages** are shown without their quoted values (AWS quotes
+- **/data never blocks a synthesis** (Louis, review r2): the count is kept
+  and checked in memory before every request; the write (temporary file,
+  fsync, rename, fsync of the directory) is awaited 1 s at most, then the
+  request leaves anyway. /data unread, read-only or slow: the status says
+  the monthly counter is not saved and the limit is only guaranteed until
+  the next restart. A crash at the wrong moment may lose one request's
+  count: a fraction of a cent, against a broken alarm.
+- **Polly's 400 messages** are cut at the first quote (AWS quotes the values received; the private
+  text may hold apostrophes, review r2), so are shown without their quoted values (AWS quotes
   the value received, which may be the private text).
 - **Voices**: one select per Gladys language (fr, en, de) from the Polly
   documentation, labelled "not standard" when the voice has no standard

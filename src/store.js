@@ -3,13 +3,14 @@
 // characters sent this month (the monthly limit), the pause after a
 // throttling or a server error, and the refused keys (8 bits of a salted hash,
 // never a key). No text spoken, no audio, no secret. Written through a
-// temporary file and a rename, one save after the other. A missing file is
+// temporary file (fsync), a rename and an fsync of the directory, one save
+// after the other. A missing file is
 // empty; a file that cannot be read (EACCES, EIO, too large) is NOT empty:
 // never overwritten; one that does not parse is moved aside to `.bad` first.
 // -----------------------------------------------------------------------------
 
 import { open, readFile, rename } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 const MAX_BYTES = 1024 * 1024;
 
@@ -72,6 +73,13 @@ export class FileStore {
         await handle.close();
       }
       await rename(tmp, this.path);
+      // The rename itself reaches the disk only with the directory.
+      const dir = await open(dirname(this.path), 'r');
+      try {
+        await dir.sync();
+      } finally {
+        await dir.close();
+      }
     };
     const job = this.queue.then(write, write);
     this.queue = job.catch(() => {});

@@ -42,9 +42,9 @@ export const ALL_TEXTS = {
     en: 'Ready. The keys are checked by AWS at the first announcement or with the Test button.',
     fr: 'Prêt. Les clés sont vérifiées par AWS à la première annonce ou avec le bouton Tester.',
   },
-  data_unread: {
-    en: 'Ready, but /data cannot be read yet: the monthly limit counts only what was sent since the start (read again every 10 s).',
-    fr: 'Prêt, mais /data n’est pas encore lisible : la limite mensuelle ne compte que ce qui a été envoyé depuis le démarrage (relu toutes les 10 s).',
+  not_persisted: {
+    en: 'Ready, but the monthly counter is not saved (/data unread, read-only or slow): the limit is only guaranteed until the next restart.',
+    fr: 'Prêt, mais le compteur mensuel n’est pas enregistré (/data non lu, en lecture seule ou lent) : le plafond n’est garanti que jusqu’au prochain redémarrage.',
   },
   working: {
     en: 'Amazon Polly answered (voice {voice}, {engine} engine).',

@@ -686,7 +686,7 @@ test('a refusal is tied to the region; a cut connection stays counted; /data unr
     polly,
     config: { ...CONFIG, region: 'eu-south-2' },
   });
-  assert.match(lastStatus(gladys)[1], /\/data cannot be read yet/);
+  assert.match(lastStatus(gladys)[1], /monthly counter is not saved/);
   await gladys.fake.ttsSynthesize('Hello', 'en');
   await gladys.fake.configUpdated({ ...CONFIG, region: 'eu-west-1' });
   polly.answer = () => {
@@ -722,4 +722,60 @@ test('the count reaches /data before the request leaves (1 s at most for a stuck
   await clock.advance(2);
   assert.equal(polly.calls.length, 2);
   assert.equal((await second).success, true);
+});
+
+test('/data failing or slow never blocks a synthesis; the limit holds in memory; the status says it', async () => {
+  const clock = testClock({ start: START });
+  const store = createMemoryStore();
+  store.failSave = true;
+  const config = { ...CONFIG, monthly_character_limit: 1000 };
+  const { gladys, polly, app } = await makeApp({ store, clock, config });
+  assert.equal((await gladys.fake.ttsSynthesize('x'.repeat(600), 'en')).success, true);
+  assert.equal(polly.calls.length, 1);
+  assert.match(
+    lastStatus(gladys)[1],
+    /monthly counter is not saved.*only guaranteed until the next restart/,
+  );
+  // The limit still holds, counted in memory.
+  const over = await gladys.fake.ttsSynthesize('y'.repeat(600), 'en');
+  assert.match(over.error, /monthly limit/);
+  assert.equal(polly.calls.length, 1);
+  assert.equal(app.usage.used, 600);
+  // Writable again: the status says so no more.
+  store.failSave = false;
+  await gladys.fake.ttsSynthesize('z'.repeat(10), 'en');
+  assert.equal(lastStatus(gladys)[0], true);
+  assert.doesNotMatch(lastStatus(gladys)[1], /not saved/);
+
+  // A write that hangs: the request leaves after 1 s, the status says it.
+  const save = store.save;
+  store.save = () => new Promise(() => {});
+  const pending = gladys.fake.ttsSynthesize('w'.repeat(10), 'en');
+  await settle();
+  await clock.advance(SECOND + 1);
+  assert.equal((await pending).success, true);
+  assert.match(lastStatus(gladys)[1], /monthly counter is not saved/);
+  store.save = save;
+});
+
+test('stop while the count is being written: nothing sent, no client made', async () => {
+  const store = createMemoryStore();
+  const { gladys, polly, app, clock } = await makeApp({ store });
+  store.save = () => new Promise(() => {});
+  const pending = gladys.fake.ttsSynthesize('Hello', 'en');
+  await settle();
+  await app.stop();
+  await clock.advance(SECOND + 1); // the 1 s budget of the write ends
+  const ack = await pending;
+  assert.equal(ack.success, false);
+  assert.equal(polly.calls.length, 0);
+  assert.equal(polly.clients.length, 0);
+});
+
+test('a read-only /data is said as soon as the first write fails, before any synthesis', async () => {
+  const store = createMemoryStore();
+  store.failSave = true;
+  const { gladys, polly } = await makeApp({ store });
+  assert.equal(polly.calls.length, 0);
+  assert.match(lastStatus(gladys)[1], /monthly counter is not saved/);
 });

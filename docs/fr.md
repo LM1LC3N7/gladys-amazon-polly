@@ -27,12 +27,14 @@ nouveaux comptes ont un quota gratuit la première année). Le moteur standard e
 
 Pour garder la facture en main :
 
-- **Limite mensuelle** (1 000 000 de caractères par défaut) : comptée et écrite dans `/data` avant le départ
-  de chaque requête (1 s au plus) ; atteinte, plus rien n’est envoyé avant le mois civil suivant (UTC) ou une limite plus
+- **Limite mensuelle** (1 000 000 de caractères par défaut) : comptée en mémoire avant le départ de chaque
+  requête, et écrite dans `/data` (l’écriture attendue 1 s au plus) ; atteinte, plus rien n’est envoyé avant le mois civil suivant (UTC) ou une limite plus
   haute. Une requête peut-être facturée (pas de réponse, connexion coupée) reste comptée ; une requête à
-  laquelle AWS a répondu par une erreur ne l’est pas. Si `/data` est illisible, le compte part de ce qui a été
-  envoyé depuis le démarrage et est fusionné quand `/data` redevient lisible ; le statut le dit en attendant (la
-  pause et un refus gardés dans `/data` ne sont pas connus non plus).
+  laquelle AWS a répondu par une erreur ne l’est pas. Une annonce n’est jamais bloquée par `/data` (retardée de 3 s au plus) : s’il n’est
+  pas encore lu (2 s au plus), en lecture seule ou lent, la requête part quand même et le statut dit « le compteur
+  mensuel n’est pas enregistré : le plafond n’est garanti que jusqu’au prochain redémarrage » (la pause et un refus
+  gardés dans `/data` peuvent aussi être inconnus). Une coupure de courant ou un plantage au mauvais moment peut
+  faire perdre le décompte d’une requête.
 - Le même texte dans la même voix est rejoué depuis la mémoire (24 heures, 20 clips), pas facturé deux fois ;
   demandé plusieurs fois à la fois (une scène qui annonce sur plusieurs enceintes), il ne fait qu’une requête
   dont tous partagent la réponse.
@@ -89,7 +91,7 @@ Le statut de l’écran Configuration dit pourquoi :
   jusqu’à 1 heure si cela continue (plus quand AWS le demande par `Retry-After`, 6 heures au plus) ; le bouton
   Tester attend aussi. La pause est gardée dans `/data` au redémarrage ; un succès y met fin.
 - **Polly a refusé la requête** : sa raison est affichée (par exemple « This voice does not support the selected
-  engine »), sans les valeurs qu’elle cite (votre texte pourrait en être une) ; rien n’est facturé.
+  engine »), coupée avant la première valeur qu’elle cite (votre texte pourrait en être une, même en partie) ; rien n’est facturé.
 - **Injoignable, ou connexion coupée** : une coupure après le départ de la requête reste comptée.
 - **Pas de réponse à temps** : Gladys attend 30 s ; l’intégration abandonne à 25 s.
 

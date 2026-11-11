@@ -71,9 +71,11 @@ export function classify(err, secrets = []) {
   const status = err?.$metadata?.httpStatusCode;
   const code = typeof err?.name === 'string' ? err.name : undefined;
   const message = typeof err?.message === 'string' ? err.message : '';
-  // AWS validation messages quote the values received ("Value 'xxx' at 'text'"):
-  // the quoted parts may be the private text, never shown.
-  const detail = redact(message.replace(/'[^']*'|"[^"]*"/g, '…'), secrets);
+  // AWS validation messages quote the values received ("Value 'xxx' at 'text'"),
+  // and the text itself may hold apostrophes: everything from the first quote
+  // on is cut, so no part of the private text is ever shown.
+  const quote = message.search(/['"\u2018\u2019\u201c\u201d`]/);
+  const detail = redact(quote < 0 ? message : `${message.slice(0, quote).trimEnd()} …`, secrets);
   if (typeof status !== 'number') {
     // The SDK names a cut connection TimeoutError too: its code tells them apart.
     if (['ECONNRESET', 'EPIPE'].includes(err?.code)) {

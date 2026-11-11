@@ -129,6 +129,7 @@ export class PollyApp {
     this.outcome = 'ready';
     this.outcomeVars = {};
     this.lastStatus = null;
+    this.persisted = undefined; // last write to /data: true, false, or none yet
   }
 
   /** Handlers first, then /data, then the connection. */
@@ -310,11 +311,26 @@ export class PollyApp {
     };
   }
 
+  /** Resolves true once written, false when /data is not read or the write failed. */
   save() {
-    if (!this.storeReady) return Promise.resolve();
-    return this.store.save(this.snapshot()).catch((err) => {
-      this.logger.warn(`/data not saved (${err?.message ?? 'error'})`);
-    });
+    if (!this.storeReady) return Promise.resolve(false);
+    return this.store.save(this.snapshot()).then(
+      () => {
+        this.setPersisted(true);
+        return true;
+      },
+      (err) => {
+        this.logger.warn(`/data not saved (${err?.message ?? 'error'})`);
+        this.setPersisted(false);
+        return false;
+      },
+    );
+  }
+
+  setPersisted(value) {
+    if (this.persisted === value) return;
+    this.persisted = value;
+    this.publishStatus();
   }
 
   // --- Guards -------------------------------------------------------------------------
@@ -479,11 +495,14 @@ export class PollyApp {
       this.gate(cfg, chars, lang, { allowRefused });
       const left = deadline - this.now();
       if (left <= 0) throw new Error(t('timeout', lang));
-      // Counted before it leaves, and written to /data first (1 s at most: a
-      // stuck volume never holds an announcement), so a lost answer or a
-      // crash right after the send does not under-count.
+      // Counted in memory before it leaves (the limit always holds while the
+      // process runs), and written to /data first, 1 s at most: a slow,
+      // read-only or unread /data never blocks an announcement (an alarm
+      // matters more than a fraction of a cent). The status then says the
+      // count is not saved; a crash at that moment may lose this request.
       this.usage.used += chars;
-      await within(this.save(), SAVE_BUDGET_MS, this.timers);
+      const saved = await within(this.save(), SAVE_BUDGET_MS, this.timers, false);
+      if (!saved) this.setPersisted(false);
       if (this.stopped) throw new Error(t('stopped', lang));
       const started = this.now();
       let result;
@@ -613,9 +632,13 @@ export class PollyApp {
         vars: { limit: cfg.monthlyLimit, used: this.usage.used },
       };
     }
-    // /data not read: the limit, the pause and a refusal kept there are not known.
-    if (!this.storeReady && (this.outcome === 'working' || this.outcome === 'ready')) {
-      return { ok: true, key: 'data_unread' };
+    // /data not read, read-only or slow: the count is not saved (the limit,
+    // the pause and a refusal kept there may also be unknown).
+    if (
+      (!this.storeReady || this.persisted === false) &&
+      (this.outcome === 'working' || this.outcome === 'ready')
+    ) {
+      return { ok: true, key: 'not_persisted' };
     }
     if (this.outcome === 'working') {
       return {

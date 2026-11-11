@@ -273,6 +273,17 @@ test('classify: a cut connection is not a timeout and was sent; quoted values ne
   );
   assert.equal(quoted.kind, 'invalid');
   assert.ok(!quoted.detail.includes('private'), quoted.detail);
+  // An odd number of apostrophes (French text): nothing of the text either.
+  const odd = classify(
+    Object.assign(
+      new Error("Value 'Code d'entrée 4512 de Marie' at 'text' failed to satisfy constraint"),
+      { name: 'ValidationException', $metadata: { httpStatusCode: 400 } },
+    ),
+  );
+  for (const part of ['Code', 'entrée', '4512', 'Marie', 'text']) {
+    assert.ok(!odd.detail.includes(part), odd.detail);
+  }
+  assert.match(odd.detail, /^Value …$/);
 });
 
 test('a connection cut after the request is sent: one request, network, sent', async (t) => {

@@ -60,12 +60,6 @@
     "to": "if (false) {"
   },
   {
-    "name": "counted only after the answer",
-    "file": "src/app.js",
-    "from": "this.usage.used += chars;\n      await within(",
-    "to": "await within("
-  },
-  {
     "name": "refunded on a timeout",
     "file": "src/app.js",
     "from": "if (answered || notSent) this.usage.used",
@@ -110,7 +104,7 @@
   {
     "name": "/data written before it was read",
     "file": "src/app.js",
-    "from": "    if (!this.storeReady) return Promise.resolve();\n",
+    "from": "    if (!this.storeReady) return Promise.resolve(false);\n",
     "to": ""
   },
   {
@@ -152,8 +146,8 @@
   {
     "name": "Polly message not redacted",
     "file": "src/polly.js",
-    "from": "const detail = redact(message.replace(/'[^']*'|\"[^\"]*\"/g, '…'), secrets);",
-    "to": "const detail = message;"
+    "from": "redact(quote < 0 ? message : `${message.slice(0, quote).trimEnd()} …`, secrets)",
+    "to": "quote < 0 ? message : `${message.slice(0, quote).trimEnd()} …`"
   },
   {
     "name": "client kept after a key change",
@@ -276,27 +270,51 @@
     "to": "const refusalOf = (cfg) => credsOf(cfg);"
   },
   {
-    "name": "quoted values shown",
-    "file": "src/polly.js",
-    "from": "message.replace(/'[^']*'|\"[^\"]*\"/g, '…')",
-    "to": "message"
-  },
-  {
     "name": "cut connection shown as a timeout",
     "file": "src/polly.js",
     "from": "if (['ECONNRESET', 'EPIPE'].includes(err?.code)) {",
     "to": "if (false) {"
   },
   {
-    "name": "/data unread not said",
-    "file": "src/app.js",
-    "from": "if (!this.storeReady && (this.outcome === 'working' || this.outcome === 'ready')) {",
-    "to": "if (false) {"
+    "name": "text quoted by Polly shown",
+    "file": "src/polly.js",
+    "from": "quote < 0 ? message :",
+    "to": "true ? message :"
   },
   {
-    "name": "count not written before sending",
+    "name": "/data not saved not said",
     "file": "src/app.js",
-    "from": "await within(this.save(), SAVE_BUDGET_MS, this.timers);",
-    "to": "this.save();"
+    "from": "(!this.storeReady || this.persisted === false) &&",
+    "to": "false &&"
+  },
+  {
+    "name": "failed write not flagged",
+    "file": "src/app.js",
+    "from": "        this.setPersisted(false);\n        return false;",
+    "to": "        return false;"
+  },
+  {
+    "name": "slow write not flagged",
+    "file": "src/app.js",
+    "from": "      if (!saved) this.setPersisted(false);\n",
+    "to": ""
+  },
+  {
+    "name": "stop during the write ignored",
+    "file": "src/app.js",
+    "from": "      if (!saved) this.setPersisted(false);\n      if (this.stopped) throw new Error(t('stopped', lang));",
+    "to": "      if (!saved) this.setPersisted(false);"
+  },
+  {
+    "name": "count written after the answer",
+    "file": "src/app.js",
+    "from": "const saved = await within(this.save(), SAVE_BUDGET_MS, this.timers, false);",
+    "to": "const saved = true;"
+  },
+  {
+    "name": "limit not counted in memory before sending",
+    "file": "src/app.js",
+    "from": "      this.usage.used += chars;\n      const saved",
+    "to": "      const saved"
   }
 ]

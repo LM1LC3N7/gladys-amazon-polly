@@ -26,11 +26,13 @@ accounts get a free allowance during their first year). The standard engine is t
 
 To keep the bill under control:
 
-- **Monthly limit** (default 1,000,000 characters): counted and written to `/data` before each request leaves (1 s at most);
+- **Monthly limit** (default 1,000,000 characters): counted in memory before each request leaves, and written to `/data` (the write waited for 1 s at most);
   once reached, nothing more is sent until the next calendar month (UTC) or a higher limit. A request that may
   have been billed (no answer, connection cut) stays counted; a request AWS answered with an error is not.
-  If `/data` cannot be read, the count starts from what was sent since the start and is merged once `/data`
-  is readable again; the status says so meanwhile (the pause and a refusal kept there are not known either).
+  An announcement is never blocked by `/data` (delayed 3 s at most): when it is not read yet (2 s at most), read-only or slow, the
+  request leaves all the same and the status says "the monthly counter is not saved: the limit is only
+  guaranteed until the next restart" (the pause and a refusal kept there may be unknown too). A cut of power
+  or a crash at the wrong moment can lose the count of one request.
 - The same text in the same voice is played again from memory (24 hours, 20 clips), not billed twice; asked
   several times at once (a scene announcing on several speakers), it makes one request whose answer all share.
 - At most 2 requests at once and 8 waiting; more at the same moment are refused ("Too many announcements").
@@ -83,7 +85,7 @@ The status of the Configuration screen says why:
   1 hour if it goes on (longer when AWS asks for it with `Retry-After`, 6 hours at most); the Test button waits
   too. The pause is kept in `/data` across a restart; a success ends it.
 - **Polly refused the request**: its reason is shown (for example "This voice does not support the selected
-  engine"), without the values it quotes (your text could be one); nothing is billed.
+  engine"), cut before the first value it quotes (your text could be one, even in part); nothing is billed.
 - **Could not be reached, or the connection was cut**: a cut after the request left stays counted.
 - **Did not answer in time**: Gladys waits 30 s; the integration gives up at 25 s.
 
