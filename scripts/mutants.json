@@ -1,0 +1,236 @@
+[
+  {
+    "name": "refused keys sent again",
+    "file": "src/app.js",
+    "from": "if (!allowRefused && this.isRefused(cfg)) throw",
+    "to": "if (false) throw"
+  },
+  {
+    "name": "any other 401/403 taken as a refusal",
+    "file": "src/polly.js",
+    "from": "if (status === 401 || status === 403) return new PollyError('denied'",
+    "to": "if (status === 401 || status === 403) return new PollyError('refused'"
+  },
+  {
+    "name": "AccessDenied taken as a refusal",
+    "file": "src/polly.js",
+    "from": "if (DENIED.has(code)) return new PollyError('denied'",
+    "to": "if (DENIED.has(code)) return new PollyError('refused'"
+  },
+  {
+    "name": "expired signature taken as a refusal",
+    "file": "src/polly.js",
+    "from": "if (CLOCK.has(code) || (code === 'InvalidSignatureException' && /expired/i.test(message))) {",
+    "to": "if (CLOCK.has(code)) {"
+  },
+  {
+    "name": "no pause after a throttling",
+    "file": "src/app.js",
+    "from": "if (left > 0) throw new Error(t('paused'",
+    "to": "if (false) throw new Error(t('paused'"
+  },
+  {
+    "name": "pause never doubled",
+    "file": "src/app.js",
+    "from": "this.pauseStep ? Math.min(this.pauseStep * 2, PAUSE_MAX_MS) : PAUSE_MIN_MS",
+    "to": "PAUSE_MIN_MS"
+  },
+  {
+    "name": "pause doubled without a ceiling",
+    "file": "src/app.js",
+    "from": "Math.min(this.pauseStep * 2, PAUSE_MAX_MS)",
+    "to": "this.pauseStep * 2"
+  },
+  {
+    "name": "Retry-After unbounded",
+    "file": "src/app.js",
+    "from": "Math.min(err.retryAfterMs, RETRY_AFTER_MAX_MS)",
+    "to": "err.retryAfterMs"
+  },
+  {
+    "name": "far future pause from /data accepted",
+    "file": "src/app.js",
+    "from": "if (left > 0 && left <= RETRY_AFTER_MAX_MS) {",
+    "to": "if (left > 0) {"
+  },
+  {
+    "name": "monthly limit not checked",
+    "file": "src/app.js",
+    "from": "if (this.usage.used + chars > cfg.monthlyLimit) {",
+    "to": "if (false) {"
+  },
+  {
+    "name": "counted only after the answer",
+    "file": "src/app.js",
+    "from": "this.usage.used += chars;\n      this.save();",
+    "to": "this.save();"
+  },
+  {
+    "name": "refunded on a timeout",
+    "file": "src/app.js",
+    "from": "if (answered || notSent) this.usage.used",
+    "to": "if (true) this.usage.used"
+  },
+  {
+    "name": "billed count ignored",
+    "file": "src/app.js",
+    "from": "this.usage.used = Math.max(0, this.usage.used - chars + billed);",
+    "to": ""
+  },
+  {
+    "name": "SDK retries",
+    "file": "src/polly.js",
+    "from": "maxAttempts: 1,",
+    "to": "maxAttempts: 3,"
+  },
+  {
+    "name": "clip read without bound",
+    "file": "src/polly.js",
+    "from": "if (size > max) {",
+    "to": "if (false) {"
+  },
+  {
+    "name": "no deadline on the request",
+    "file": "src/app.js",
+    "from": "const timer = this.timers.setTimeout(() => controller.abort(), left);",
+    "to": "const timer = undefined;"
+  },
+  {
+    "name": "queue unbounded",
+    "file": "src/app.js",
+    "from": "if (this.waiting.length >= MAX_WAITING)",
+    "to": "if (false)"
+  },
+  {
+    "name": "in flight unbounded",
+    "file": "src/app.js",
+    "from": "if (this.inFlight < MAX_IN_FLIGHT) {",
+    "to": "if (true) {"
+  },
+  {
+    "name": "/data written before it was read",
+    "file": "src/app.js",
+    "from": "    if (!this.storeReady) return;\n    this.store.save(",
+    "to": "    this.store.save("
+  },
+  {
+    "name": "second read of /data while one hangs",
+    "file": "src/app.js",
+    "from": "if (this.loading || this.storeReady || this.stopped) return this.loading;",
+    "to": "if (this.storeReady || this.stopped) return this.loading;"
+  },
+  {
+    "name": "/data read once only",
+    "file": "src/app.js",
+    "from": "          this.loadStore();\n        }, STORE_RETRY_MS);",
+    "to": "        }, STORE_RETRY_MS);"
+  },
+  {
+    "name": "first /data read not awaited",
+    "file": "src/app.js",
+    "from": "waits.push(within(this.firstLoad, STORE_LOAD_BUDGET_MS, this.timers));",
+    "to": "void 0;"
+  },
+  {
+    "name": "getConfig retried once",
+    "file": "src/app.js",
+    "from": "this.refreshConfig(Math.min(delay * 2, CONFIG_RETRY_MAX_MS));",
+    "to": "void 0;"
+  },
+  {
+    "name": "getConfig retried without spacing growth",
+    "file": "src/app.js",
+    "from": "this.refreshConfig(Math.min(delay * 2, CONFIG_RETRY_MAX_MS));",
+    "to": "this.refreshConfig(delay);"
+  },
+  {
+    "name": "secret without key id accepted",
+    "file": "src/config.js",
+    "from": "  if (!accessKeyId) return { ok: false, reason: 'key_id_missing' };\n",
+    "to": ""
+  },
+  {
+    "name": "Polly message not redacted",
+    "file": "src/polly.js",
+    "from": "const detail = redact(message, secrets);",
+    "to": "const detail = message;"
+  },
+  {
+    "name": "client kept after a key change",
+    "file": "src/app.js",
+    "from": "if (!this.client || this.clientKey !== key) {",
+    "to": "if (!this.client) {"
+  },
+  {
+    "name": "new keys blocked by an old refusal",
+    "file": "src/app.js",
+    "from": "if (this.refusedFull) return this.refusedFull === sha256(credsOf(cfg));",
+    "to": "if (this.refusedFull) return true;"
+  },
+  {
+    "name": "success does not lift the refusal",
+    "file": "src/app.js",
+    "from": "    this.refused = null;\n    this.refusedFull = null;\n    this.succeeded",
+    "to": "    this.succeeded"
+  },
+  {
+    "name": "Test button blocked by a refusal",
+    "file": "src/app.js",
+    "from": "lang: 'en', deadline, allowRefused: true",
+    "to": "lang: 'en', deadline, allowRefused: false"
+  },
+  {
+    "name": "status sent at every call",
+    "file": "src/app.js",
+    "from": "if (id === this.lastStatus) return;",
+    "to": ""
+  },
+  {
+    "name": "cache key without the voice",
+    "file": "src/app.js",
+    "from": "JSON.stringify([voice, cfg.engine, cfg.rate, text])",
+    "to": "JSON.stringify([cfg.engine, cfg.rate, text])"
+  },
+  {
+    "name": "cache never expires",
+    "file": "src/app.js",
+    "from": "if (this.now() - hit.at > CACHE_TTL_MS) {",
+    "to": "if (false) {"
+  },
+  {
+    "name": "cache unbounded",
+    "file": "src/app.js",
+    "from": "if (this.cache.size <= CACHE_MAX_ENTRIES && this.cacheChars <= CACHE_MAX_CHARS) break;",
+    "to": "break;"
+  },
+  {
+    "name": "SSML not escaped",
+    "file": "src/app.js",
+    "from": ".replace(/&/g, '&amp;')",
+    "to": ".replace(/&/g, '&')"
+  },
+  {
+    "name": "control characters kept",
+    "file": "src/app.js",
+    "from": ".replace(/[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]/g, ' ')",
+    "to": ""
+  },
+  {
+    "name": "timeout of the waiters removed",
+    "file": "src/app.js",
+    "from": "          reject(new Error(t('timeout', lang)));",
+    "to": "          void 0;"
+  },
+  {
+    "name": "stop leaves the store timer",
+    "file": "src/app.js",
+    "from": "for (const timer of [this.configTimer, this.storeTimer]) this.timers.clearTimeout(timer);",
+    "to": "void 0;"
+  },
+  {
+    "name": "month never rolls",
+    "file": "src/app.js",
+    "from": "if (month !== this.usage.month) this.usage = { month, used: 0 };",
+    "to": ""
+  }
+]

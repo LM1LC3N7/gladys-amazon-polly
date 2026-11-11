@@ -1,177 +1,744 @@
 {
   "manifest_version": 1,
-  "type": "device",
-  "name": "Demo Devices Template",
+  "type": "tts",
+  "name": "Amazon Polly",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Amazon Polly voices for Gladys announcements, with your own AWS account.",
+    "fr": "Voix Amazon Polly pour les annonces de Gladys, avec votre propre compte AWS."
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
-  "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-amazon-polly:0.1.0",
+  "gladys_version": ">=5.3.0",
+  "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-amazon-polly/main/cover.png",
+  "categories": ["assistants"],
+  "transports": ["cloud"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your AWS keys",
+        "fr": "Vos clés AWS"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Amazon Polly is billed to your own AWS account, per character spoken. Create an IAM user allowed only polly:SynthesizeSpeech (the documentation gives the policy) and enter its access key here. The standard engine is the default: the cheapest one.",
+        "fr": "Amazon Polly est facturé sur votre propre compte AWS, au caractère prononcé. Créez un utilisateur IAM autorisé seulement à polly:SynthesizeSpeech (la documentation donne la stratégie) et saisissez sa clé d’accès ici. Le moteur standard est celui par défaut : le moins cher."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://aws.amazon.com/polly/pricing/",
+          "label": {
+            "en": "Amazon Polly prices",
+            "fr": "Tarifs d’Amazon Polly"
+          }
+        },
+        {
+          "url": "https://docs.aws.amazon.com/polly/latest/dg/available-voices.html",
+          "label": {
+            "en": "Polly voices and engines",
+            "fr": "Voix et moteurs de Polly"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "access_key_id",
+      "type": "string",
+      "label": {
+        "en": "Access key ID",
+        "fr": "Identifiant de clé d’accès"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "description": {
+        "en": "The access key ID of the IAM user (AKIA… ).",
+        "fr": "L’identifiant de clé d’accès de l’utilisateur IAM (AKIA… )."
+      },
+      "placeholder": {
+        "en": "e.g. AKIAIOSFODNN7EXAMPLE",
+        "fr": "ex. AKIAIOSFODNN7EXAMPLE"
+      },
+      "required": true
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "secret_access_key",
+      "type": "secret",
+      "label": {
+        "en": "Secret access key",
+        "fr": "Clé d’accès secrète"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "description": {
+        "en": "The secret access key shown once by AWS when the key was created. Kept by Gladys in its database, never shown again, sent only to Amazon Web Services (it signs the requests: only the signature travels, not the key itself).",
+        "fr": "La clé d’accès secrète affichée une seule fois par AWS à la création de la clé. Gardée par Gladys dans sa base, jamais réaffichée, envoyée seulement à Amazon Web Services (elle signe les requêtes : seule la signature circule, pas la clé elle-même)."
+      },
+      "required": true
     },
     {
-      "key": "unit",
+      "key": "region",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "AWS region",
+        "fr": "Région AWS"
+      },
+      "description": {
+        "en": "Where Polly runs. Not every engine exists in every region: eu-west-1 (Ireland) has the standard and neural voices.",
+        "fr": "Où Polly tourne. Tous les moteurs n’existent pas dans toutes les régions : eu-west-1 (Irlande) a les voix standard et neuronales."
+      },
       "required": false,
-      "default": "celsius",
+      "default": "eu-west-1",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "us-east-1",
+          "label": {
+            "en": "us-east-1",
+            "fr": "us-east-1"
+          }
+        },
+        {
+          "value": "us-east-2",
+          "label": {
+            "en": "us-east-2",
+            "fr": "us-east-2"
+          }
+        },
+        {
+          "value": "us-west-1",
+          "label": {
+            "en": "us-west-1",
+            "fr": "us-west-1"
+          }
+        },
+        {
+          "value": "us-west-2",
+          "label": {
+            "en": "us-west-2",
+            "fr": "us-west-2"
+          }
+        },
+        {
+          "value": "ca-central-1",
+          "label": {
+            "en": "ca-central-1",
+            "fr": "ca-central-1"
+          }
+        },
+        {
+          "value": "sa-east-1",
+          "label": {
+            "en": "sa-east-1",
+            "fr": "sa-east-1"
+          }
+        },
+        {
+          "value": "eu-west-1",
+          "label": {
+            "en": "eu-west-1",
+            "fr": "eu-west-1"
+          }
+        },
+        {
+          "value": "eu-west-2",
+          "label": {
+            "en": "eu-west-2",
+            "fr": "eu-west-2"
+          }
+        },
+        {
+          "value": "eu-west-3",
+          "label": {
+            "en": "eu-west-3",
+            "fr": "eu-west-3"
+          }
+        },
+        {
+          "value": "eu-central-1",
+          "label": {
+            "en": "eu-central-1",
+            "fr": "eu-central-1"
+          }
+        },
+        {
+          "value": "eu-central-2",
+          "label": {
+            "en": "eu-central-2",
+            "fr": "eu-central-2"
+          }
+        },
+        {
+          "value": "eu-north-1",
+          "label": {
+            "en": "eu-north-1",
+            "fr": "eu-north-1"
+          }
+        },
+        {
+          "value": "eu-south-2",
+          "label": {
+            "en": "eu-south-2",
+            "fr": "eu-south-2"
+          }
+        },
+        {
+          "value": "af-south-1",
+          "label": {
+            "en": "af-south-1",
+            "fr": "af-south-1"
+          }
+        },
+        {
+          "value": "ap-south-1",
+          "label": {
+            "en": "ap-south-1",
+            "fr": "ap-south-1"
+          }
+        },
+        {
+          "value": "ap-northeast-1",
+          "label": {
+            "en": "ap-northeast-1",
+            "fr": "ap-northeast-1"
+          }
+        },
+        {
+          "value": "ap-northeast-2",
+          "label": {
+            "en": "ap-northeast-2",
+            "fr": "ap-northeast-2"
+          }
+        },
+        {
+          "value": "ap-northeast-3",
+          "label": {
+            "en": "ap-northeast-3",
+            "fr": "ap-northeast-3"
+          }
+        },
+        {
+          "value": "ap-southeast-1",
+          "label": {
+            "en": "ap-southeast-1",
+            "fr": "ap-southeast-1"
+          }
+        },
+        {
+          "value": "ap-southeast-2",
+          "label": {
+            "en": "ap-southeast-2",
+            "fr": "ap-southeast-2"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "engine",
+      "type": "select",
+      "label": {
+        "en": "Voice engine",
+        "fr": "Moteur de voix"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Standard is the cheapest; neural, generative and long-form sound more natural and cost more per character (see the prices). Not every voice has every engine: Polly then says so.",
+        "fr": "Standard est le moins cher ; neuronal, génératif et long format sonnent plus naturel et coûtent plus cher au caractère (voir les tarifs). Toutes les voix n’ont pas tous les moteurs : Polly le dit alors."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "standard",
+      "options": [
+        {
+          "value": "standard",
+          "label": {
+            "en": "Standard (cheapest)",
+            "fr": "Standard (le moins cher)"
+          }
+        },
+        {
+          "value": "neural",
+          "label": {
+            "en": "Neural",
+            "fr": "Neuronal"
+          }
+        },
+        {
+          "value": "generative",
+          "label": {
+            "en": "Generative",
+            "fr": "Génératif"
+          }
+        },
+        {
+          "value": "long-form",
+          "label": {
+            "en": "Long-form",
+            "fr": "Long format"
+          }
+        }
+      ]
+    },
+    {
+      "key": "voice_fr",
+      "type": "select",
+      "label": {
+        "en": "French voice",
+        "fr": "Voix française"
+      },
+      "description": {
+        "en": "Used when the request is in this language. \"not standard\": this voice needs the neural or a newer engine.",
+        "fr": "Utilisée quand la demande est dans cette langue. « pas standard » : cette voix exige le moteur neuronal ou plus récent."
+      },
+      "required": false,
+      "default": "Lea",
+      "options": [
+        {
+          "value": "Lea",
+          "label": {
+            "en": "Lea (fr-FR, female)",
+            "fr": "Lea (fr-FR, femme)"
+          }
+        },
+        {
+          "value": "Celine",
+          "label": {
+            "en": "Celine (fr-FR, female)",
+            "fr": "Celine (fr-FR, femme)"
+          }
+        },
+        {
+          "value": "Mathieu",
+          "label": {
+            "en": "Mathieu (fr-FR, male)",
+            "fr": "Mathieu (fr-FR, homme)"
+          }
+        },
+        {
+          "value": "Remi",
+          "label": {
+            "en": "Remi (fr-FR, male, not standard)",
+            "fr": "Remi (fr-FR, homme, pas standard)"
+          }
+        },
+        {
+          "value": "Isabelle",
+          "label": {
+            "en": "Isabelle (fr-BE, female, not standard)",
+            "fr": "Isabelle (fr-BE, femme, pas standard)"
+          }
+        },
+        {
+          "value": "Chantal",
+          "label": {
+            "en": "Chantal (fr-CA, female)",
+            "fr": "Chantal (fr-CA, femme)"
+          }
+        },
+        {
+          "value": "Gabrielle",
+          "label": {
+            "en": "Gabrielle (fr-CA, female, not standard)",
+            "fr": "Gabrielle (fr-CA, femme, pas standard)"
+          }
+        },
+        {
+          "value": "Liam",
+          "label": {
+            "en": "Liam (fr-CA, male, not standard)",
+            "fr": "Liam (fr-CA, homme, pas standard)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "voice_en",
+      "type": "select",
+      "label": {
+        "en": "English voice",
+        "fr": "Voix anglaise"
+      },
+      "description": {
+        "en": "Used when the request is in this language. \"not standard\": this voice needs the neural or a newer engine.",
+        "fr": "Utilisée quand la demande est dans cette langue. « pas standard » : cette voix exige le moteur neuronal ou plus récent."
+      },
+      "required": false,
+      "default": "Joanna",
+      "options": [
+        {
+          "value": "Joanna",
+          "label": {
+            "en": "Joanna (en-US, female)",
+            "fr": "Joanna (en-US, femme)"
+          }
+        },
+        {
+          "value": "Matthew",
+          "label": {
+            "en": "Matthew (en-US, male)",
+            "fr": "Matthew (en-US, homme)"
+          }
+        },
+        {
+          "value": "Ivy",
+          "label": {
+            "en": "Ivy (en-US, female)",
+            "fr": "Ivy (en-US, femme)"
+          }
+        },
+        {
+          "value": "Kendra",
+          "label": {
+            "en": "Kendra (en-US, female)",
+            "fr": "Kendra (en-US, femme)"
+          }
+        },
+        {
+          "value": "Kimberly",
+          "label": {
+            "en": "Kimberly (en-US, female)",
+            "fr": "Kimberly (en-US, femme)"
+          }
+        },
+        {
+          "value": "Salli",
+          "label": {
+            "en": "Salli (en-US, female)",
+            "fr": "Salli (en-US, femme)"
+          }
+        },
+        {
+          "value": "Joey",
+          "label": {
+            "en": "Joey (en-US, male)",
+            "fr": "Joey (en-US, homme)"
+          }
+        },
+        {
+          "value": "Justin",
+          "label": {
+            "en": "Justin (en-US, male)",
+            "fr": "Justin (en-US, homme)"
+          }
+        },
+        {
+          "value": "Kevin",
+          "label": {
+            "en": "Kevin (en-US, male, not standard)",
+            "fr": "Kevin (en-US, homme, pas standard)"
+          }
+        },
+        {
+          "value": "Ruth",
+          "label": {
+            "en": "Ruth (en-US, female, not standard)",
+            "fr": "Ruth (en-US, femme, pas standard)"
+          }
+        },
+        {
+          "value": "Stephen",
+          "label": {
+            "en": "Stephen (en-US, male, not standard)",
+            "fr": "Stephen (en-US, homme, pas standard)"
+          }
+        },
+        {
+          "value": "Danielle",
+          "label": {
+            "en": "Danielle (en-US, female, not standard)",
+            "fr": "Danielle (en-US, femme, pas standard)"
+          }
+        },
+        {
+          "value": "Gregory",
+          "label": {
+            "en": "Gregory (en-US, male, not standard)",
+            "fr": "Gregory (en-US, homme, pas standard)"
+          }
+        },
+        {
+          "value": "Amy",
+          "label": {
+            "en": "Amy (en-GB, female)",
+            "fr": "Amy (en-GB, femme)"
+          }
+        },
+        {
+          "value": "Emma",
+          "label": {
+            "en": "Emma (en-GB, female)",
+            "fr": "Emma (en-GB, femme)"
+          }
+        },
+        {
+          "value": "Brian",
+          "label": {
+            "en": "Brian (en-GB, male)",
+            "fr": "Brian (en-GB, homme)"
+          }
+        },
+        {
+          "value": "Arthur",
+          "label": {
+            "en": "Arthur (en-GB, male, not standard)",
+            "fr": "Arthur (en-GB, homme, pas standard)"
+          }
+        },
+        {
+          "value": "Nicole",
+          "label": {
+            "en": "Nicole (en-AU, female)",
+            "fr": "Nicole (en-AU, femme)"
+          }
+        },
+        {
+          "value": "Russell",
+          "label": {
+            "en": "Russell (en-AU, male)",
+            "fr": "Russell (en-AU, homme)"
+          }
+        },
+        {
+          "value": "Olivia",
+          "label": {
+            "en": "Olivia (en-AU, female, not standard)",
+            "fr": "Olivia (en-AU, femme, pas standard)"
+          }
+        },
+        {
+          "value": "Aria",
+          "label": {
+            "en": "Aria (en-NZ, female, not standard)",
+            "fr": "Aria (en-NZ, femme, pas standard)"
+          }
+        },
+        {
+          "value": "Ayanda",
+          "label": {
+            "en": "Ayanda (en-ZA, female, not standard)",
+            "fr": "Ayanda (en-ZA, femme, pas standard)"
+          }
+        },
+        {
+          "value": "Niamh",
+          "label": {
+            "en": "Niamh (en-IE, female, not standard)",
+            "fr": "Niamh (en-IE, femme, pas standard)"
+          }
+        },
+        {
+          "value": "Geraint",
+          "label": {
+            "en": "Geraint (en-GB-WLS, male)",
+            "fr": "Geraint (en-GB-WLS, homme)"
+          }
+        },
+        {
+          "value": "Raveena",
+          "label": {
+            "en": "Raveena (en-IN, female)",
+            "fr": "Raveena (en-IN, femme)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "voice_de",
+      "type": "select",
+      "label": {
+        "en": "German voice",
+        "fr": "Voix allemande"
+      },
+      "description": {
+        "en": "Used when the request is in this language. \"not standard\": this voice needs the neural or a newer engine.",
+        "fr": "Utilisée quand la demande est dans cette langue. « pas standard » : cette voix exige le moteur neuronal ou plus récent."
+      },
+      "required": false,
+      "default": "Vicki",
+      "options": [
+        {
+          "value": "Vicki",
+          "label": {
+            "en": "Vicki (de-DE, female)",
+            "fr": "Vicki (de-DE, femme)"
+          }
+        },
+        {
+          "value": "Marlene",
+          "label": {
+            "en": "Marlene (de-DE, female)",
+            "fr": "Marlene (de-DE, femme)"
+          }
+        },
+        {
+          "value": "Hans",
+          "label": {
+            "en": "Hans (de-DE, male)",
+            "fr": "Hans (de-DE, homme)"
+          }
+        },
+        {
+          "value": "Daniel",
+          "label": {
+            "en": "Daniel (de-DE, male, not standard)",
+            "fr": "Daniel (de-DE, homme, pas standard)"
+          }
+        },
+        {
+          "value": "Hannah",
+          "label": {
+            "en": "Hannah (de-AT, female, not standard)",
+            "fr": "Hannah (de-AT, femme, pas standard)"
+          }
+        },
+        {
+          "value": "Sabrina",
+          "label": {
+            "en": "Sabrina (de-CH, female, not standard)",
+            "fr": "Sabrina (de-CH, femme, pas standard)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "default_language",
+      "type": "select",
+      "label": {
+        "en": "Language when unknown",
+        "fr": "Langue si inconnue"
+      },
+      "description": {
+        "en": "The voice used when Gladys sends no language, or another one.",
+        "fr": "La voix utilisée quand Gladys n’envoie pas de langue, ou une autre."
+      },
+      "required": false,
+      "default": "en",
+      "options": [
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français"
+          }
+        },
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand"
+          }
+        }
+      ]
+    },
+    {
+      "key": "speaking_rate",
+      "type": "select",
+      "label": {
+        "en": "Speaking rate",
+        "fr": "Débit de parole"
+      },
+      "required": false,
+      "default": "medium",
+      "options": [
+        {
+          "value": "x-slow",
+          "label": {
+            "en": "Very slow",
+            "fr": "Très lent"
+          }
+        },
+        {
+          "value": "slow",
+          "label": {
+            "en": "Slow",
+            "fr": "Lent"
+          }
+        },
+        {
+          "value": "medium",
+          "label": {
+            "en": "Normal",
+            "fr": "Normal"
+          }
+        },
+        {
+          "value": "fast",
+          "label": {
+            "en": "Fast",
+            "fr": "Rapide"
+          }
+        },
+        {
+          "value": "x-fast",
+          "label": {
+            "en": "Very fast",
+            "fr": "Très rapide"
+          }
+        }
+      ]
+    },
+    {
+      "key": "monthly_character_limit",
+      "type": "number",
+      "label": {
+        "en": "Monthly limit (characters)",
+        "fr": "Limite mensuelle (caractères)"
+      },
+      "description": {
+        "en": "Nothing more is sent to Polly once this many characters were sent in the calendar month (UTC). 1,000,000 characters cost about 4 USD with the standard engine.",
+        "fr": "Plus rien n’est envoyé à Polly une fois ce nombre de caractères envoyé dans le mois civil (UTC). 1 000 000 de caractères coûtent environ 4 USD avec le moteur standard."
+      },
+      "required": false,
+      "default": 1000000,
+      "min": 1000,
+      "max": 100000000
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
-    }
-  ],
-  "scene_triggers": [
-    {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
-      "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+      "key": "test_voice",
+      "label": {
+        "en": "Test the voice",
+        "fr": "Tester la voix"
       },
+      "description": {
+        "en": "Asks Polly for a short sentence (about 50 billed characters) with the saved settings and says how it went. Nothing is played.",
+        "fr": "Demande à Polly une courte phrase (environ 50 caractères facturés) avec les réglages enregistrés et dit comment cela s’est passé. Rien n’est joué."
+      },
+      "timeout_seconds": 30,
       "fields": [
         {
-          "key": "device",
+          "key": "language",
           "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "label": {
+            "en": "Voice to test",
+            "fr": "Voix à tester"
+          },
+          "required": false,
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "fr",
+              "label": {
+                "en": "French voice",
+                "fr": "Voix française"
+              }
+            },
+            {
+              "value": "en",
+              "label": {
+                "en": "English voice",
+                "fr": "Voix anglaise"
+              }
+            },
+            {
+              "value": "de",
+              "label": {
+                "en": "German voice",
+                "fr": "Voix allemande"
+              }
+            }
           ]
         }
-      ],
-      "variables": [
-        {
-          "key": "target",
-          "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
-        }
       ]
-    }
-  ],
-  "scene_actions": [
-    {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
-      },
-      "timeout_seconds": 15,
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
-      "outputs": [
-        {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
-        }
-      ]
-    }
-  ],
-  "widgets": [
-    {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
-      },
-      "icon": "activity",
-      "action_timeout_seconds": 15
     }
   ]
 }
