@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-11
+
 ### Added
 
 - First version: Amazon Polly as the text-to-speech provider of Gladys (type
@@ -25,3 +27,6 @@ the notes of the version's GitHub Release.
   1 h, `Retry-After` up to 6 h), kept across a restart.
 - "Test the voice" button.
 - Identical requests at the same moment share one Polly request.
+
+[Unreleased]: https://github.com/LM1LC3N7/gladys-amazon-polly/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-amazon-polly/releases/tag/v0.1.1

@@ -1,6 +1,6 @@
 {
   "name": "gladys-amazon-polly",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Amazon Polly voices for Gladys Assistant: a text-to-speech provider (standard voices by default) with your own AWS keys.",
   "type": "module",
