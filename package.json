@@ -23,7 +23,7 @@
     "url": "git+https://github.com/LM1LC3N7/gladys-amazon-polly.git"
   },
   "dependencies": {
-    "@aws-sdk/client-polly": "^3.1166.0",
+    "@aws-sdk/client-polly": "^3.1169.0",
     "@gladysassistant/integration-sdk": "^0.16.0",
     "@smithy/node-http-handler": "^4.14.2"
   },
