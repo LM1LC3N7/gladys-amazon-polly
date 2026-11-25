@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-polly": "^3.1169.0",
-    "@gladysassistant/integration-sdk": "^0.16.0",
+    "@gladysassistant/integration-sdk": "^0.16.1",
     "@smithy/node-http-handler": "^4.14.2"
   },
   "devDependencies": {
